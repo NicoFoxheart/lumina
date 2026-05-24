@@ -21,9 +21,10 @@
     
     <script>
         // ============================================
-        // COLOR SYSTEM - THE JOURNEY
+        // PERFORMANCE OPTIMIZED VERSION
         // ============================================
         
+        // COLOR SYSTEM
         const colorJourney = {
             darkness: {
                 bg: 0x000510,
@@ -67,7 +68,6 @@
             } else if (progress < 0.8) {
                 return lerpColors(colorJourney.bloom, colorJourney.sunset, (progress - 0.6) * 5);
             } else {
-                // Final sunset intensifies
                 const intensity = (progress - 0.8) * 5;
                 return {
                     bg: 0x4a1058,
@@ -93,64 +93,53 @@
             return c1.lerp(c2, t).getHex();
         }
         
-        // ============================================
-        // PARTICLE WITH TRAILS & GLOW
-        // ============================================
-        
+        // OPTIMIZED PARTICLE
         class LuminaParticle {
             constructor(scene, x, y, z, isStar = false) {
                 this.scene = scene;
                 this.isStar = isStar;
                 
-                // Main particle
-                const geometry = new THREE.SphereGeometry(isStar ? 0.2 : 0.12, 16, 16);
+                const geometry = new THREE.SphereGeometry(isStar ? 0.18 : 0.1, 8, 8);
                 this.material = new THREE.MeshBasicMaterial({
                     color: isStar ? 0x96c8ff : 0x64748b,
                     transparent: true,
-                    opacity: isStar ? 0.9 : 0.6,
+                    opacity: isStar ? 0.85 : 0.5,
                 });
                 
                 this.mesh = new THREE.Mesh(geometry, this.material);
                 this.mesh.position.set(x, y, z);
                 this.scene.add(this.mesh);
                 
-                // Trail system
+                // Simplified trail
                 this.trail = [];
-                this.maxTrailLength = isStar ? 20 : 10;
+                this.maxTrailLength = isStar ? 8 : 0;
+                this.trailCounter = 0;
                 
-                // Multi-layer glow
+                // Only 2 glow layers instead of 3
                 this.glowLayers = [];
                 if (isStar) {
-                    // Inner glow
-                    const glow1 = this.createGlow(0.4, 0.4);
+                    const glow1 = this.createGlow(0.35, 0.3);
                     this.mesh.add(glow1);
                     this.glowLayers.push(glow1);
                     
-                    // Mid glow
-                    const glow2 = this.createGlow(0.7, 0.25);
+                    const glow2 = this.createGlow(0.6, 0.15);
                     this.mesh.add(glow2);
                     this.glowLayers.push(glow2);
-                    
-                    // Outer glow
-                    const glow3 = this.createGlow(1.2, 0.15);
-                    this.mesh.add(glow3);
-                    this.glowLayers.push(glow3);
                 }
                 
-                // Physics
                 this.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.03,
-                    isStar ? Math.random() * 0.03 : -Math.random() * 0.03,
-                    (Math.random() - 0.5) * 0.03
+                    (Math.random() - 0.5) * 0.025,
+                    isStar ? Math.random() * 0.025 : -Math.random() * 0.025,
+                    (Math.random() - 0.5) * 0.025
                 );
                 
                 this.brightness = 0;
-                this.baseOpacity = isStar ? 0.9 : 0.6;
+                this.baseOpacity = isStar ? 0.85 : 0.5;
                 this.pulsePhase = Math.random() * Math.PI * 2;
             }
             
             createGlow(size, opacity) {
-                const glowGeometry = new THREE.SphereGeometry(size, 16, 16);
+                const glowGeometry = new THREE.SphereGeometry(size, 12, 12);
                 const glowMaterial = new THREE.MeshBasicMaterial({
                     color: 0x96c8ff,
                     transparent: true,
@@ -160,30 +149,28 @@
             }
             
             update(mousePos, interactionLevel, currentColors) {
-                // Movement
                 this.mesh.position.add(this.velocity);
                 
-                // Trail update
-                if (this.isStar && this.trail.length < this.maxTrailLength) {
-                    if (Math.random() < 0.3) {
-                        const trailGeometry = new THREE.SphereGeometry(0.08, 8, 8);
-                        const trailMaterial = new THREE.MeshBasicMaterial({
-                            color: currentColors.glow,
-                            transparent: true,
-                            opacity: 0.6,
-                        });
-                        const trailPoint = new THREE.Mesh(trailGeometry, trailMaterial);
-                        trailPoint.position.copy(this.mesh.position);
-                        this.scene.add(trailPoint);
-                        this.trail.push({ mesh: trailPoint, life: 1.0 });
-                    }
+                // Trail only every 3rd frame for stars
+                this.trailCounter++;
+                if (this.isStar && this.trail.length < this.maxTrailLength && this.trailCounter % 3 === 0) {
+                    const trailGeometry = new THREE.SphereGeometry(0.06, 6, 6);
+                    const trailMaterial = new THREE.MeshBasicMaterial({
+                        color: currentColors.glow,
+                        transparent: true,
+                        opacity: 0.5,
+                    });
+                    const trailPoint = new THREE.Mesh(trailGeometry, trailMaterial);
+                    trailPoint.position.copy(this.mesh.position);
+                    this.scene.add(trailPoint);
+                    this.trail.push({ mesh: trailPoint, life: 1.0 });
                 }
                 
                 // Update trail
                 for (let i = this.trail.length - 1; i >= 0; i--) {
                     const t = this.trail[i];
-                    t.life -= 0.05;
-                    t.mesh.material.opacity = t.life * 0.6;
+                    t.life -= 0.06;
+                    t.mesh.material.opacity = t.life * 0.5;
                     t.mesh.scale.setScalar(t.life);
                     
                     if (t.life <= 0) {
@@ -194,37 +181,32 @@
                     }
                 }
                 
-                // Mouse interaction
                 const distance = this.mesh.position.distanceTo(mousePos);
-                const maxDistance = 6;
+                const maxDistance = 5;
                 
                 if (distance < maxDistance) {
                     const force = (maxDistance - distance) / maxDistance;
-                    this.brightness = Math.min(this.brightness + force * 0.15, 1);
+                    this.brightness = Math.min(this.brightness + force * 0.12, 1);
                     
-                    if (!this.isStar && force > 0.4) {
+                    if (!this.isStar && force > 0.45) {
                         this.transformToStar(currentColors);
                     }
                 } else {
                     this.brightness *= 0.96;
                 }
                 
-                // Twinkle effect
-                this.pulsePhase += 0.03;
-                const pulse = Math.sin(this.pulsePhase) * 0.2 + 0.8;
+                this.pulsePhase += 0.025;
+                const pulse = Math.sin(this.pulsePhase) * 0.15 + 0.85;
                 
-                // Update colors
                 this.material.color.setHex(this.isStar ? currentColors.particles : currentColors.glass);
                 this.material.opacity = (this.baseOpacity + this.brightness * 0.3) * pulse;
                 
-                // Update glow layers
                 this.glowLayers.forEach((glow, index) => {
                     glow.material.color.setHex(currentColors.glow);
-                    glow.material.opacity = (0.1 + this.brightness * 0.4) * pulse * (1 - index * 0.2);
-                    glow.scale.setScalar(1 + this.brightness * 0.8 + Math.sin(this.pulsePhase) * 0.1);
+                    glow.material.opacity = (0.1 + this.brightness * 0.35) * pulse * (1 - index * 0.3);
+                    glow.scale.setScalar(1 + this.brightness * 0.7);
                 });
                 
-                // Boundaries
                 if (this.mesh.position.y > 15) this.mesh.position.y = -15;
                 if (this.mesh.position.y < -15) this.mesh.position.y = 15;
                 if (this.mesh.position.x > 20) this.mesh.position.x = -20;
@@ -235,36 +217,29 @@
             
             transformToStar(currentColors) {
                 this.isStar = true;
-                this.velocity.y = Math.abs(this.velocity.y) * 1.5;
-                this.baseOpacity = 0.9;
-                this.maxTrailLength = 20;
+                this.velocity.y = Math.abs(this.velocity.y) * 1.3;
+                this.baseOpacity = 0.85;
+                this.maxTrailLength = 8;
                 
                 if (this.glowLayers.length === 0) {
-                    const glow1 = this.createGlow(0.4, 0.4);
+                    const glow1 = this.createGlow(0.35, 0.3);
                     this.mesh.add(glow1);
                     this.glowLayers.push(glow1);
                     
-                    const glow2 = this.createGlow(0.7, 0.25);
+                    const glow2 = this.createGlow(0.6, 0.15);
                     this.mesh.add(glow2);
                     this.glowLayers.push(glow2);
-                    
-                    const glow3 = this.createGlow(1.2, 0.15);
-                    this.mesh.add(glow3);
-                    this.glowLayers.push(glow3);
                 }
             }
         }
         
-        // ============================================
-        // GLASS WITH RAINBOW REFRACTION
-        // ============================================
-        
+        // OPTIMIZED GLASS
         class GlassFragment {
             constructor(scene, x, y, z) {
                 this.scene = scene;
                 
                 const shape = new THREE.Shape();
-                const size = 0.6 + Math.random() * 0.6;
+                const size = 0.5 + Math.random() * 0.5;
                 shape.moveTo(-size, -size);
                 shape.lineTo(size * 0.9, -size * 0.5);
                 shape.lineTo(size * 0.7, size);
@@ -276,7 +251,7 @@
                 this.material = new THREE.MeshBasicMaterial({
                     color: 0x96c8ff,
                     transparent: true,
-                    opacity: 0.2,
+                    opacity: 0.18,
                     side: THREE.DoubleSide,
                 });
                 
@@ -284,18 +259,15 @@
                 this.mesh.position.set(x, y, z);
                 this.scene.add(this.mesh);
                 
-                // Rainbow edge effect
                 const edges = new THREE.EdgesGeometry(geometry);
                 this.edgeMaterial = new THREE.LineBasicMaterial({
                     color: 0x96c8ff,
                     transparent: true,
-                    opacity: 0.5,
-                    linewidth: 2,
+                    opacity: 0.45,
                 });
                 this.edge = new THREE.LineSegments(edges, this.edgeMaterial);
                 this.mesh.add(this.edge);
                 
-                // Inner crack glow
                 this.crackMaterial = new THREE.LineBasicMaterial({
                     color: 0xffd700,
                     transparent: true,
@@ -309,15 +281,15 @@
                 this.mesh.add(this.crack);
                 
                 this.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.015,
-                    (Math.random() - 0.5) * 0.015,
-                    (Math.random() - 0.5) * 0.015
-                );
-                
-                this.rotationSpeed = new THREE.Vector3(
                     (Math.random() - 0.5) * 0.012,
                     (Math.random() - 0.5) * 0.012,
                     (Math.random() - 0.5) * 0.012
+                );
+                
+                this.rotationSpeed = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.01,
+                    (Math.random() - 0.5) * 0.01,
+                    (Math.random() - 0.5) * 0.01
                 );
                 
                 this.brightness = 0;
@@ -331,91 +303,71 @@
                 this.mesh.rotation.z += this.rotationSpeed.z;
                 
                 const distance = this.mesh.position.distanceTo(mousePos);
-                const maxDistance = 10;
+                const maxDistance = 9;
                 
                 if (distance < maxDistance) {
                     const force = (maxDistance - distance) / maxDistance;
-                    this.brightness = Math.min(this.brightness + force * 0.08, 1);
+                    this.brightness = Math.min(this.brightness + force * 0.07, 1);
                 } else {
                     this.brightness *= 0.94;
                 }
                 
-                // Rainbow color shift
-                this.rainbowPhase += 0.02;
+                this.rainbowPhase += 0.015;
                 const hue = (Math.sin(this.rainbowPhase) + 1) * 0.5;
-                const rainbowColor = new THREE.Color().setHSL(hue, 0.8, 0.6);
+                const rainbowColor = new THREE.Color().setHSL(hue, 0.75, 0.55);
                 
-                // Update materials
                 this.material.color.setHex(currentColors.glass);
-                this.material.opacity = 0.2 + this.brightness * 0.4;
+                this.material.opacity = 0.18 + this.brightness * 0.35;
                 
-                this.edgeMaterial.color.lerp(rainbowColor, this.brightness);
-                this.edgeMaterial.opacity = 0.5 + this.brightness * 0.4;
+                this.edgeMaterial.color.lerp(rainbowColor, this.brightness * 0.8);
+                this.edgeMaterial.opacity = 0.45 + this.brightness * 0.4;
                 
                 this.crackMaterial.color.setHex(currentColors.glow);
-                this.crackMaterial.opacity = this.brightness * 0.8;
+                this.crackMaterial.opacity = this.brightness * 0.7;
                 
-                // Boundaries
                 if (Math.abs(this.mesh.position.x) > 20) this.velocity.x *= -1;
                 if (Math.abs(this.mesh.position.y) > 15) this.velocity.y *= -1;
                 if (Math.abs(this.mesh.position.z) > 20) this.velocity.z *= -1;
             }
         }
         
-        // ============================================
-        // INTIMATE MESSAGE SYSTEM
-        // ============================================
-        
+        // MESSAGES
         const intimateMessages = [
             { text: "Hey... you there?", time: 1500, duration: 3000 },
             { text: "Yeah, you", time: 5000, duration: 2500 },
             { text: "I see you", time: 8000, duration: 3000 },
-            
             { text: "I know you're hurting", time: 12000, duration: 3500 },
             { text: "I know it's heavy", time: 16000, duration: 3000 },
-            
             { text: "But look...", time: 20000, duration: 2500 },
             { text: "Move your hand", time: 23000, duration: 3000 },
             { text: "See that?", time: 26500, duration: 2500 },
-            
             { text: "That's you", time: 30000, duration: 3000 },
             { text: "Creating light", time: 33500, duration: 3000 },
             { text: "Even now", time: 37000, duration: 3500 },
-            
             { text: "You don't have to be okay", time: 41500, duration: 4000 },
             { text: "You just have to be here", time: 46000, duration: 4000 },
-            
             { text: "And you are", time: 51000, duration: 3000 },
             { text: "You're still here", time: 54500, duration: 3500 },
             { text: "That's everything", time: 58500, duration: 4000 },
-            
             { text: "Every tear you've cried?", time: 63500, duration: 3500 },
             { text: "Every crack in your heart?", time: 67500, duration: 4000 },
-            
             { text: "They catch the light", time: 72500, duration: 3500 },
             { text: "They become stars", time: 76500, duration: 3500 },
             { text: "They become beautiful", time: 80500, duration: 4500 },
-            
             { text: "Not because the pain wasn't real", time: 86000, duration: 4500 },
             { text: "But because YOU are real", time: 91000, duration: 4500 },
-            
             { text: "Look at what you're making", time: 96500, duration: 4000 },
             { text: "Look at these colors", time: 101000, duration: 4000 },
-            
             { text: "This is your light", time: 106000, duration: 3500 },
             { text: "This is your strength", time: 110000, duration: 3500 },
             { text: "This is YOU", time: 114000, duration: 5000 },
-            
             { text: "Don't give up", time: 120000, duration: 4500 },
             { text: "Please", time: 125000, duration: 3500 },
-            
             { text: "The world needs this light", time: 129500, duration: 4500 },
             { text: "The world needs YOU", time: 134500, duration: 5500 },
-            
             { text: "You are Lumina", time: 141000, duration: 5000 },
             { text: "Light in the darkness", time: 147000, duration: 5000 },
             { text: "Broken, beautiful, whole", time: 153000, duration: 6000 },
-            
             { text: "And you always were", time: 160000, duration: 8000 }
         ];
         
@@ -456,48 +408,40 @@
             }
         }
         
-        // ============================================
-        // MAIN SCENE
-        // ============================================
-        
+        // SCENE SETUP
         const scene = new THREE.Scene();
-        
-        // Camera
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = 15;
         
-        // Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.getElementById('container').appendChild(renderer.domElement);
         
-        // Fog (will change color)
         scene.fog = new THREE.FogExp2(0x000510, 0.015);
         
-        // Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
         
-        // Create particles
+        // Create particles - REDUCED FROM 400 TO 200
         const particles = [];
-        for (let i = 0; i < 400; i++) {
-            const x = (Math.random() - 0.5) * 45;
-            const y = (Math.random() - 0.5) * 35;
-            const z = (Math.random() - 0.5) * 45;
+        for (let i = 0; i < 200; i++) {
+            const x = (Math.random() - 0.5) * 40;
+            const y = (Math.random() - 0.5) * 30;
+            const z = (Math.random() - 0.5) * 40;
             const isStar = Math.random() > 0.65;
             particles.push(new LuminaParticle(scene, x, y, z, isStar));
         }
         
-        // Create glass
+        // Create glass - REDUCED FROM 50 TO 30
         const glassFragments = [];
-        for (let i = 0; i < 50; i++) {
-            const x = (Math.random() - 0.5) * 45;
-            const y = (Math.random() - 0.5) * 35;
-            const z = (Math.random() - 0.5) * 45;
+        for (let i = 0; i < 30; i++) {
+            const x = (Math.random() - 0.5) * 40;
+            const y = (Math.random() - 0.5) * 30;
+            const z = (Math.random() - 0.5) * 40;
             glassFragments.push(new GlassFragment(scene, x, y, z));
         }
         
@@ -531,7 +475,7 @@
             updateMousePosition(touch.clientX, touch.clientY);
         }, { passive: false });
         
-        // Click burst
+        // Click burst - REDUCED FROM 40 TO 25
         function createBurst(clientX, clientY) {
             const mx = (clientX / window.innerWidth) * 2 - 1;
             const my = -(clientY / window.innerHeight) * 2 + 1;
@@ -542,20 +486,18 @@
             const distance = -camera.position.z / dir.z;
             const pos = camera.position.clone().add(dir.multiplyScalar(distance));
             
-            const currentColors = getColorForProgress(totalInteraction);
-            
-            for (let i = 0; i < 40; i++) {
+            for (let i = 0; i < 25; i++) {
                 const p = new LuminaParticle(
                     scene,
-                    pos.x + (Math.random() - 0.5) * 3,
-                    pos.y + (Math.random() - 0.5) * 3,
-                    pos.z + (Math.random() - 0.5) * 3,
+                    pos.x + (Math.random() - 0.5) * 2.5,
+                    pos.y + (Math.random() - 0.5) * 2.5,
+                    pos.z + (Math.random() - 0.5) * 2.5,
                     true
                 );
                 particles.push(p);
             }
             
-            totalInteraction = Math.min(totalInteraction + 0.05, 1);
+            totalInteraction = Math.min(totalInteraction + 0.04, 1);
         }
         
         window.addEventListener('click', (e) => {
@@ -567,7 +509,6 @@
             createBurst(touch.clientX, touch.clientY);
         });
         
-        // Text system
         const textSystem = new TextSystem();
         textSystem.showWelcome();
         
@@ -575,27 +516,19 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // Get current colors based on progress
             const currentColors = getColorForProgress(totalInteraction);
             
-            // Update background
             renderer.setClearColor(currentColors.bg, 1);
             scene.fog.color.setHex(currentColors.bg);
             
-            // Update particles
             particles.forEach(p => p.update(mousePos3D, interactionLevel, currentColors));
-            
-            // Update glass
             glassFragments.forEach(g => g.update(mousePos3D, currentColors));
             
-            // Update text
             textSystem.update();
             
-            // Camera movement
-            camera.position.x += (mouse.x * 3 - camera.position.x) * 0.015;
-            camera.position.y += (mouse.y * 3 - camera.position.y) * 0.015;
+            camera.position.x += (mouse.x * 2.5 - camera.position.x) * 0.012;
+            camera.position.y += (mouse.y * 2.5 - camera.position.y) * 0.012;
             
-            // Fade interaction
             interactionLevel *= 0.97;
             
             renderer.render(scene, camera);
