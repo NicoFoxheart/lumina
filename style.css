@@ -11,13 +11,12 @@ body {
     cursor: crosshair;
 }
 
-#luminaCanvas {
+#container {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    display: block;
 }
 
 #messageContainer {
@@ -27,29 +26,89 @@ body {
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 10;
+    width: 90%;
+    max-width: 800px;
 }
 
 #message {
-    font-size: 2rem;
+    font-size: 2.5rem;
     color: rgba(255, 255, 255, 0);
     text-align: center;
     font-weight: 300;
-    letter-spacing: 3px;
-    text-shadow: 0 0 20px rgba(150, 200, 255, 0.5);
-    transition: color 0.5s ease, opacity 0.5s ease;
-    padding: 0 20px;
+    letter-spacing: 4px;
+    text-shadow: 
+        0 0 20px rgba(150, 200, 255, 0.8),
+        0 0 40px rgba(150, 200, 255, 0.4);
+    transition: all 0.8s ease;
+    line-height: 1.4;
 }
 
 #message.show {
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.95);
     opacity: 1;
+    text-shadow: 
+        0 0 30px rgba(150, 200, 255, 1),
+        0 0 60px rgba(150, 200, 255, 0.6),
+        0 0 90px rgba(100, 150, 255, 0.3);
 }
 
-/* Mobile optimizations */
+#instructions {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.9rem;
+    text-align: center;
+    pointer-events: none;
+    z-index: 10;
+    letter-spacing: 1px;
+    animation: fadeInOut 8s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+}
+
+.toggle-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+/* Mobile */
 @media (max-width: 768px) {
     #message {
-        font-size: 1.5rem;
+        font-size: 1.8rem;
         letter-spacing: 2px;
+    }
+    
+    #instructions {
+        font-size: 0.8rem;
+        bottom: 20px;
+        padding: 0 20px;
+    }
+    
+    .toggle-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 1.3rem;
     }
     
     body {
