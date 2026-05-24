@@ -7,32 +7,94 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Three.js container -->
     <div id="container"></div>
     
-    <!-- Messages -->
     <div id="messageContainer">
         <p id="message"></p>
     </div>
     
-    <!-- Sound toggle -->
-    <button id="soundToggle" class="toggle-btn">
-        <span class="sound-on">🔊</span>
-        <span class="sound-off" style="display:none;">🔇</span>
-    </button>
-    
-    <!-- Instructions -->
     <div id="instructions">
-        <p>Move to create light • Click for bursts • Let the transformation begin</p>
+        <p>Move to create light • Touch to transform • Let yourself feel</p>
     </div>
 
-    <!-- Three.js from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
-    <!-- ALL OUR CODE IN ONE SCRIPT TAG -->
     <script>
         // ============================================
-        // PARTICLE SYSTEM
+        // COLOR SYSTEM - THE JOURNEY
+        // ============================================
+        
+        const colorJourney = {
+            darkness: {
+                bg: 0x000510,
+                particles: 0x4a5568,
+                glass: 0x64748b,
+                glow: 0x94a3b8
+            },
+            awakening: {
+                bg: 0x0a1628,
+                particles: 0xffd89b,
+                glass: 0xc9b6e4,
+                glow: 0xffafcc
+            },
+            transformation: {
+                bg: 0x1a0a28,
+                particles: 0xff6b6b,
+                glass: 0xb794f4,
+                glow: 0x4ecdc4
+            },
+            bloom: {
+                bg: 0x2a0a38,
+                particles: 0xff006e,
+                glass: 0x8338ec,
+                glow: 0xffbe0b
+            },
+            sunset: {
+                bg: 0x3a1048,
+                particles: 0xff4500,
+                glass: 0xff1493,
+                glow: 0xffd700
+            }
+        };
+        
+        function getColorForProgress(progress) {
+            if (progress < 0.2) {
+                return lerpColors(colorJourney.darkness, colorJourney.awakening, progress * 5);
+            } else if (progress < 0.4) {
+                return lerpColors(colorJourney.awakening, colorJourney.transformation, (progress - 0.2) * 5);
+            } else if (progress < 0.6) {
+                return lerpColors(colorJourney.transformation, colorJourney.bloom, (progress - 0.4) * 5);
+            } else if (progress < 0.8) {
+                return lerpColors(colorJourney.bloom, colorJourney.sunset, (progress - 0.6) * 5);
+            } else {
+                // Final sunset intensifies
+                const intensity = (progress - 0.8) * 5;
+                return {
+                    bg: 0x4a1058,
+                    particles: 0xff6347,
+                    glass: 0xff69b4,
+                    glow: 0xffd700 + Math.floor(intensity * 0x111111)
+                };
+            }
+        }
+        
+        function lerpColors(colors1, colors2, t) {
+            return {
+                bg: lerpColor(colors1.bg, colors2.bg, t),
+                particles: lerpColor(colors1.particles, colors2.particles, t),
+                glass: lerpColor(colors1.glass, colors2.glass, t),
+                glow: lerpColor(colors1.glow, colors2.glow, t)
+            };
+        }
+        
+        function lerpColor(color1, color2, t) {
+            const c1 = new THREE.Color(color1);
+            const c2 = new THREE.Color(color2);
+            return c1.lerp(c2, t).getHex();
+        }
+        
+        // ============================================
+        // PARTICLE WITH TRAILS & GLOW
         // ============================================
         
         class LuminaParticle {
@@ -40,64 +102,129 @@
                 this.scene = scene;
                 this.isStar = isStar;
                 
-                const geometry = new THREE.SphereGeometry(isStar ? 0.15 : 0.1, 8, 8);
-                
+                // Main particle
+                const geometry = new THREE.SphereGeometry(isStar ? 0.2 : 0.12, 16, 16);
                 this.material = new THREE.MeshBasicMaterial({
-                    color: isStar ? 0x96c8ff : 0xb4c8dc,
+                    color: isStar ? 0x96c8ff : 0x64748b,
                     transparent: true,
-                    opacity: isStar ? 0.8 : 0.5,
+                    opacity: isStar ? 0.9 : 0.6,
                 });
                 
                 this.mesh = new THREE.Mesh(geometry, this.material);
                 this.mesh.position.set(x, y, z);
                 this.scene.add(this.mesh);
                 
+                // Trail system
+                this.trail = [];
+                this.maxTrailLength = isStar ? 20 : 10;
+                
+                // Multi-layer glow
+                this.glowLayers = [];
+                if (isStar) {
+                    // Inner glow
+                    const glow1 = this.createGlow(0.4, 0.4);
+                    this.mesh.add(glow1);
+                    this.glowLayers.push(glow1);
+                    
+                    // Mid glow
+                    const glow2 = this.createGlow(0.7, 0.25);
+                    this.mesh.add(glow2);
+                    this.glowLayers.push(glow2);
+                    
+                    // Outer glow
+                    const glow3 = this.createGlow(1.2, 0.15);
+                    this.mesh.add(glow3);
+                    this.glowLayers.push(glow3);
+                }
+                
+                // Physics
                 this.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.02,
-                    isStar ? Math.random() * 0.02 : -Math.random() * 0.02,
-                    (Math.random() - 0.5) * 0.02
+                    (Math.random() - 0.5) * 0.03,
+                    isStar ? Math.random() * 0.03 : -Math.random() * 0.03,
+                    (Math.random() - 0.5) * 0.03
                 );
                 
                 this.brightness = 0;
-                this.baseOpacity = isStar ? 0.8 : 0.5;
-                
-                if (isStar) {
-                    const glowGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-                    const glowMaterial = new THREE.MeshBasicMaterial({
-                        color: 0x96c8ff,
-                        transparent: true,
-                        opacity: 0.2,
-                    });
-                    this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
-                    this.mesh.add(this.glow);
-                }
+                this.baseOpacity = isStar ? 0.9 : 0.6;
+                this.pulsePhase = Math.random() * Math.PI * 2;
             }
             
-            update(mousePos, interactionLevel) {
+            createGlow(size, opacity) {
+                const glowGeometry = new THREE.SphereGeometry(size, 16, 16);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x96c8ff,
+                    transparent: true,
+                    opacity: opacity,
+                });
+                return new THREE.Mesh(glowGeometry, glowMaterial);
+            }
+            
+            update(mousePos, interactionLevel, currentColors) {
+                // Movement
                 this.mesh.position.add(this.velocity);
                 
+                // Trail update
+                if (this.isStar && this.trail.length < this.maxTrailLength) {
+                    if (Math.random() < 0.3) {
+                        const trailGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+                        const trailMaterial = new THREE.MeshBasicMaterial({
+                            color: currentColors.glow,
+                            transparent: true,
+                            opacity: 0.6,
+                        });
+                        const trailPoint = new THREE.Mesh(trailGeometry, trailMaterial);
+                        trailPoint.position.copy(this.mesh.position);
+                        this.scene.add(trailPoint);
+                        this.trail.push({ mesh: trailPoint, life: 1.0 });
+                    }
+                }
+                
+                // Update trail
+                for (let i = this.trail.length - 1; i >= 0; i--) {
+                    const t = this.trail[i];
+                    t.life -= 0.05;
+                    t.mesh.material.opacity = t.life * 0.6;
+                    t.mesh.scale.setScalar(t.life);
+                    
+                    if (t.life <= 0) {
+                        this.scene.remove(t.mesh);
+                        t.mesh.geometry.dispose();
+                        t.mesh.material.dispose();
+                        this.trail.splice(i, 1);
+                    }
+                }
+                
+                // Mouse interaction
                 const distance = this.mesh.position.distanceTo(mousePos);
-                const maxDistance = 5;
+                const maxDistance = 6;
                 
                 if (distance < maxDistance) {
                     const force = (maxDistance - distance) / maxDistance;
-                    this.brightness = Math.min(this.brightness + force * 0.1, 1);
+                    this.brightness = Math.min(this.brightness + force * 0.15, 1);
                     
-                    if (!this.isStar && force > 0.5) {
-                        this.transformToStar();
+                    if (!this.isStar && force > 0.4) {
+                        this.transformToStar(currentColors);
                     }
                 } else {
-                    this.brightness *= 0.95;
+                    this.brightness *= 0.96;
                 }
                 
-                const opacity = this.baseOpacity + this.brightness * 0.4;
-                this.material.opacity = opacity;
+                // Twinkle effect
+                this.pulsePhase += 0.03;
+                const pulse = Math.sin(this.pulsePhase) * 0.2 + 0.8;
                 
-                if (this.glow) {
-                    this.glow.material.opacity = 0.2 + this.brightness * 0.3;
-                    this.glow.scale.setScalar(1 + this.brightness * 0.5);
-                }
+                // Update colors
+                this.material.color.setHex(this.isStar ? currentColors.particles : currentColors.glass);
+                this.material.opacity = (this.baseOpacity + this.brightness * 0.3) * pulse;
                 
+                // Update glow layers
+                this.glowLayers.forEach((glow, index) => {
+                    glow.material.color.setHex(currentColors.glow);
+                    glow.material.opacity = (0.1 + this.brightness * 0.4) * pulse * (1 - index * 0.2);
+                    glow.scale.setScalar(1 + this.brightness * 0.8 + Math.sin(this.pulsePhase) * 0.1);
+                });
+                
+                // Boundaries
                 if (this.mesh.position.y > 15) this.mesh.position.y = -15;
                 if (this.mesh.position.y < -15) this.mesh.position.y = 15;
                 if (this.mesh.position.x > 20) this.mesh.position.x = -20;
@@ -106,313 +233,27 @@
                 if (this.mesh.position.z < -20) this.mesh.position.z = 20;
             }
             
-            transformToStar() {
+            transformToStar(currentColors) {
                 this.isStar = true;
-                this.velocity.y = Math.abs(this.velocity.y);
-                this.baseOpacity = 0.8;
-                this.material.color.setHex(0x96c8ff);
+                this.velocity.y = Math.abs(this.velocity.y) * 1.5;
+                this.baseOpacity = 0.9;
+                this.maxTrailLength = 20;
                 
-                if (!this.glow) {
-                    const glowGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-                    const glowMaterial = new THREE.MeshBasicMaterial({
-                        color: 0x96c8ff,
-                        transparent: true,
-                        opacity: 0.2,
-                    });
-                    this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
-                    this.mesh.add(this.glow);
-                }
-            }
-        }
-        
-        // ============================================
-        // GLASS FRAGMENT SYSTEM
-        // ============================================
-        
-        class GlassFragment {
-            constructor(scene, x, y, z) {
-                this.scene = scene;
-                
-                const shape = new THREE.Shape();
-                const size = 0.5 + Math.random() * 0.5;
-                shape.moveTo(-size, -size);
-                shape.lineTo(size * 0.8, -size * 0.6);
-                shape.lineTo(size * 0.6, size);
-                shape.lineTo(-size * 0.7, size * 0.8);
-                shape.closePath();
-                
-                const geometry = new THREE.ShapeGeometry(shape);
-                
-                this.material = new THREE.MeshBasicMaterial({
-                    color: 0x96c8ff,
-                    transparent: true,
-                    opacity: 0.15,
-                    side: THREE.DoubleSide,
-                });
-                
-                this.mesh = new THREE.Mesh(geometry, this.material);
-                this.mesh.position.set(x, y, z);
-                this.scene.add(this.mesh);
-                
-                const edges = new THREE.EdgesGeometry(geometry);
-                this.edgeMaterial = new THREE.LineBasicMaterial({
-                    color: 0x96c8ff,
-                    transparent: true,
-                    opacity: 0.4,
-                });
-                this.edge = new THREE.LineSegments(edges, this.edgeMaterial);
-                this.mesh.add(this.edge);
-                
-                this.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.01,
-                    (Math.random() - 0.5) * 0.01,
-                    (Math.random() - 0.5) * 0.01
-                );
-                
-                this.rotationSpeed = new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.01,
-                    (Math.random() - 0.5) * 0.01,
-                    (Math.random() - 0.5) * 0.01
-                );
-                
-                this.brightness = 0;
-            }
-            
-            update(mousePos) {
-                this.mesh.position.add(this.velocity);
-                this.mesh.rotation.x += this.rotationSpeed.x;
-                this.mesh.rotation.y += this.rotationSpeed.y;
-                this.mesh.rotation.z += this.rotationSpeed.z;
-                
-                const distance = this.mesh.position.distanceTo(mousePos);
-                const maxDistance = 8;
-                
-                if (distance < maxDistance) {
-                    const force = (maxDistance - distance) / maxDistance;
-                    this.brightness = Math.min(this.brightness + force * 0.05, 1);
-                } else {
-                    this.brightness *= 0.95;
-                }
-                
-                this.material.opacity = 0.15 + this.brightness * 0.3;
-                this.edgeMaterial.opacity = 0.4 + this.brightness * 0.5;
-                
-                if (Math.abs(this.mesh.position.x) > 20) this.velocity.x *= -1;
-                if (Math.abs(this.mesh.position.y) > 15) this.velocity.y *= -1;
-                if (Math.abs(this.mesh.position.z) > 20) this.velocity.z *= -1;
-            }
-        }
-        
-        // ============================================
-        // TEXT SYSTEM
-        // ============================================
-        
-        const messages = [
-            { text: "This is heavy", time: 2000, duration: 3500 },
-            { text: "The weight is real", time: 6000, duration: 3000 },
-            { text: "But you're still moving", time: 11000, duration: 3500 },
-            { text: "Still breathing", time: 15500, duration: 3000 },
-            { text: "Pain can be beautiful", time: 20000, duration: 4000 },
-            { text: "Cracks let the light in", time: 25500, duration: 4000 },
-            { text: "You don't have to be fixed to be whole", time: 31000, duration: 5000 },
-            { text: "Don't give up", time: 38000, duration: 4500 },
-            { text: "You are Lumina", time: 44000, duration: 5000 },
-            { text: "Light in your own darkness", time: 50500, duration: 6000 }
-        ];
-        
-        class TextSystem {
-            constructor() {
-                this.messageEl = document.getElementById('message');
-                this.messageIndex = 0;
-                this.startTime = Date.now();
-            }
-            
-            update() {
-                const elapsed = Date.now() - this.startTime;
-                
-                if (this.messageIndex < messages.length) {
-                    const current = messages[this.messageIndex];
+                if (this.glowLayers.length === 0) {
+                    const glow1 = this.createGlow(0.4, 0.4);
+                    this.mesh.add(glow1);
+                    this.glowLayers.push(glow1);
                     
-                    if (elapsed >= current.time && elapsed < current.time + current.duration) {
-                        if (this.messageEl.textContent !== current.text) {
-                            this.messageEl.textContent = current.text;
-                            this.messageEl.classList.add('show');
-                        }
-                    } else if (elapsed >= current.time + current.duration) {
-                        this.messageEl.classList.remove('show');
-                        if (this.messageIndex < messages.length - 1) {
-                            this.messageIndex++;
-                        }
-                    }
+                    const glow2 = this.createGlow(0.7, 0.25);
+                    this.mesh.add(glow2);
+                    this.glowLayers.push(glow2);
+                    
+                    const glow3 = this.createGlow(1.2, 0.15);
+                    this.mesh.add(glow3);
+                    this.glowLayers.push(glow3);
                 }
             }
-            
-            showWelcome() {
-                this.messageEl.textContent = "Move to create light";
-                this.messageEl.classList.add('show');
-                setTimeout(() => {
-                    this.messageEl.classList.remove('show');
-                    this.startTime = Date.now();
-                }, 4000);
-            }
         }
         
         // ============================================
-        // MAIN LUMINA APP
-        // ============================================
-        
-        // Scene setup
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000510, 0.02);
-        
-        // Camera
-        const camera = new THREE.PerspectiveCamera(
-            75,
-            window.innerWidth / window.innerHeight,
-            0.1,
-            1000
-        );
-        camera.position.z = 15;
-        
-        // Renderer
-        const renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
-            alpha: true 
-        });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setClearColor(0x000510, 1);
-        document.getElementById('container').appendChild(renderer.domElement);
-        
-        // Resize handler
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-        
-        // Create particles
-        const particles = [];
-        const particleCount = 300;
-        
-        for (let i = 0; i < particleCount; i++) {
-            const x = (Math.random() - 0.5) * 40;
-            const y = (Math.random() - 0.5) * 30;
-            const z = (Math.random() - 0.5) * 40;
-            const isStar = Math.random() > 0.7;
-            particles.push(new LuminaParticle(scene, x, y, z, isStar));
-        }
-        
-        // Create glass fragments
-        const glassFragments = [];
-        const glassCount = 40;
-        
-        for (let i = 0; i < glassCount; i++) {
-            const x = (Math.random() - 0.5) * 40;
-            const y = (Math.random() - 0.5) * 30;
-            const z = (Math.random() - 0.5) * 40;
-            glassFragments.push(new GlassFragment(scene, x, y, z));
-        }
-        
-        // Mouse/touch tracking
-        const mouse = new THREE.Vector2();
-        const mousePos3D = new THREE.Vector3();
-        let interactionLevel = 0;
-        
-        function updateMousePosition(clientX, clientY) {
-            mouse.x = (clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-            
-            const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
-            vector.unproject(camera);
-            const dir = vector.sub(camera.position).normalize();
-            const distance = -camera.position.z / dir.z;
-            mousePos3D.copy(camera.position).add(dir.multiplyScalar(distance));
-            
-            interactionLevel = Math.min(interactionLevel + 0.05, 1);
-        }
-        
-        window.addEventListener('mousemove', (e) => {
-            updateMousePosition(e.clientX, e.clientY);
-        });
-        
-        window.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            updateMousePosition(touch.clientX, touch.clientY);
-        }, { passive: false });
-        
-        // Click/tap - create burst
-        function createBurst(clientX, clientY) {
-            const mx = (clientX / window.innerWidth) * 2 - 1;
-            const my = -(clientY / window.innerHeight) * 2 + 1;
-            
-            const vector = new THREE.Vector3(mx, my, 0.5);
-            vector.unproject(camera);
-            const dir = vector.sub(camera.position).normalize();
-            const distance = -camera.position.z / dir.z;
-            const pos = camera.position.clone().add(dir.multiplyScalar(distance));
-            
-            for (let i = 0; i < 30; i++) {
-                particles.push(new LuminaParticle(
-                    scene,
-                    pos.x + (Math.random() - 0.5) * 2,
-                    pos.y + (Math.random() - 0.5) * 2,
-                    pos.z + (Math.random() - 0.5) * 2,
-                    true
-                ));
-            }
-        }
-        
-        window.addEventListener('click', (e) => {
-            createBurst(e.clientX, e.clientY);
-        });
-        
-        window.addEventListener('touchstart', (e) => {
-            const touch = e.touches[0];
-            createBurst(touch.clientX, touch.clientY);
-        });
-        
-        // Text system
-        const textSystem = new TextSystem();
-        textSystem.showWelcome();
-        
-        // Sound toggle (placeholder for now)
-        const soundToggle = document.getElementById('soundToggle');
-        let soundEnabled = false;
-        
-        soundToggle.addEventListener('click', () => {
-            soundEnabled = !soundEnabled;
-            document.querySelector('.sound-on').style.display = soundEnabled ? 'none' : 'inline';
-            document.querySelector('.sound-off').style.display = soundEnabled ? 'inline' : 'none';
-            // Sound will be added in next version
-        });
-        
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Update particles
-            particles.forEach(p => p.update(mousePos3D, interactionLevel));
-            
-            // Update glass
-            glassFragments.forEach(g => g.update(mousePos3D));
-            
-            // Update text
-            textSystem.update();
-            
-            // Camera gentle movement
-            camera.position.x += (mouse.x * 2 - camera.position.x) * 0.01;
-            camera.position.y += (mouse.y * 2 - camera.position.y) * 0.01;
-            
-            // Fade interaction
-            interactionLevel *= 0.98;
-            
-            // Render
-            renderer.render(scene, camera);
-        }
-        
-        animate();
-    </script>
-</body>
-</html>
+        // GLASS WITH RAINBOW REFRACT
