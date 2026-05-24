@@ -26,13 +26,393 @@
         <p>Move to create light • Click for bursts • Let the transformation begin</p>
     </div>
 
-    <!-- Three.js -->
+    <!-- Three.js from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
-    <!-- Our scripts -->
-    <script src="js/particles.js"></script>
-    <script src="js/glass.js"></script>
-    <script src="js/text.js"></script>
-    <script src="js/main.js"></script>
+    <!-- ALL OUR CODE IN ONE SCRIPT TAG -->
+    <script>
+        // ============================================
+        // PARTICLE SYSTEM
+        // ============================================
+        
+        class LuminaParticle {
+            constructor(scene, x, y, z, isStar = false) {
+                this.scene = scene;
+                this.isStar = isStar;
+                
+                const geometry = new THREE.SphereGeometry(isStar ? 0.15 : 0.1, 8, 8);
+                
+                this.material = new THREE.MeshBasicMaterial({
+                    color: isStar ? 0x96c8ff : 0xb4c8dc,
+                    transparent: true,
+                    opacity: isStar ? 0.8 : 0.5,
+                });
+                
+                this.mesh = new THREE.Mesh(geometry, this.material);
+                this.mesh.position.set(x, y, z);
+                this.scene.add(this.mesh);
+                
+                this.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.02,
+                    isStar ? Math.random() * 0.02 : -Math.random() * 0.02,
+                    (Math.random() - 0.5) * 0.02
+                );
+                
+                this.brightness = 0;
+                this.baseOpacity = isStar ? 0.8 : 0.5;
+                
+                if (isStar) {
+                    const glowGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                    const glowMaterial = new THREE.MeshBasicMaterial({
+                        color: 0x96c8ff,
+                        transparent: true,
+                        opacity: 0.2,
+                    });
+                    this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                    this.mesh.add(this.glow);
+                }
+            }
+            
+            update(mousePos, interactionLevel) {
+                this.mesh.position.add(this.velocity);
+                
+                const distance = this.mesh.position.distanceTo(mousePos);
+                const maxDistance = 5;
+                
+                if (distance < maxDistance) {
+                    const force = (maxDistance - distance) / maxDistance;
+                    this.brightness = Math.min(this.brightness + force * 0.1, 1);
+                    
+                    if (!this.isStar && force > 0.5) {
+                        this.transformToStar();
+                    }
+                } else {
+                    this.brightness *= 0.95;
+                }
+                
+                const opacity = this.baseOpacity + this.brightness * 0.4;
+                this.material.opacity = opacity;
+                
+                if (this.glow) {
+                    this.glow.material.opacity = 0.2 + this.brightness * 0.3;
+                    this.glow.scale.setScalar(1 + this.brightness * 0.5);
+                }
+                
+                if (this.mesh.position.y > 15) this.mesh.position.y = -15;
+                if (this.mesh.position.y < -15) this.mesh.position.y = 15;
+                if (this.mesh.position.x > 20) this.mesh.position.x = -20;
+                if (this.mesh.position.x < -20) this.mesh.position.x = 20;
+                if (this.mesh.position.z > 20) this.mesh.position.z = -20;
+                if (this.mesh.position.z < -20) this.mesh.position.z = 20;
+            }
+            
+            transformToStar() {
+                this.isStar = true;
+                this.velocity.y = Math.abs(this.velocity.y);
+                this.baseOpacity = 0.8;
+                this.material.color.setHex(0x96c8ff);
+                
+                if (!this.glow) {
+                    const glowGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                    const glowMaterial = new THREE.MeshBasicMaterial({
+                        color: 0x96c8ff,
+                        transparent: true,
+                        opacity: 0.2,
+                    });
+                    this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                    this.mesh.add(this.glow);
+                }
+            }
+        }
+        
+        // ============================================
+        // GLASS FRAGMENT SYSTEM
+        // ============================================
+        
+        class GlassFragment {
+            constructor(scene, x, y, z) {
+                this.scene = scene;
+                
+                const shape = new THREE.Shape();
+                const size = 0.5 + Math.random() * 0.5;
+                shape.moveTo(-size, -size);
+                shape.lineTo(size * 0.8, -size * 0.6);
+                shape.lineTo(size * 0.6, size);
+                shape.lineTo(-size * 0.7, size * 0.8);
+                shape.closePath();
+                
+                const geometry = new THREE.ShapeGeometry(shape);
+                
+                this.material = new THREE.MeshBasicMaterial({
+                    color: 0x96c8ff,
+                    transparent: true,
+                    opacity: 0.15,
+                    side: THREE.DoubleSide,
+                });
+                
+                this.mesh = new THREE.Mesh(geometry, this.material);
+                this.mesh.position.set(x, y, z);
+                this.scene.add(this.mesh);
+                
+                const edges = new THREE.EdgesGeometry(geometry);
+                this.edgeMaterial = new THREE.LineBasicMaterial({
+                    color: 0x96c8ff,
+                    transparent: true,
+                    opacity: 0.4,
+                });
+                this.edge = new THREE.LineSegments(edges, this.edgeMaterial);
+                this.mesh.add(this.edge);
+                
+                this.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.01,
+                    (Math.random() - 0.5) * 0.01,
+                    (Math.random() - 0.5) * 0.01
+                );
+                
+                this.rotationSpeed = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.01,
+                    (Math.random() - 0.5) * 0.01,
+                    (Math.random() - 0.5) * 0.01
+                );
+                
+                this.brightness = 0;
+            }
+            
+            update(mousePos) {
+                this.mesh.position.add(this.velocity);
+                this.mesh.rotation.x += this.rotationSpeed.x;
+                this.mesh.rotation.y += this.rotationSpeed.y;
+                this.mesh.rotation.z += this.rotationSpeed.z;
+                
+                const distance = this.mesh.position.distanceTo(mousePos);
+                const maxDistance = 8;
+                
+                if (distance < maxDistance) {
+                    const force = (maxDistance - distance) / maxDistance;
+                    this.brightness = Math.min(this.brightness + force * 0.05, 1);
+                } else {
+                    this.brightness *= 0.95;
+                }
+                
+                this.material.opacity = 0.15 + this.brightness * 0.3;
+                this.edgeMaterial.opacity = 0.4 + this.brightness * 0.5;
+                
+                if (Math.abs(this.mesh.position.x) > 20) this.velocity.x *= -1;
+                if (Math.abs(this.mesh.position.y) > 15) this.velocity.y *= -1;
+                if (Math.abs(this.mesh.position.z) > 20) this.velocity.z *= -1;
+            }
+        }
+        
+        // ============================================
+        // TEXT SYSTEM
+        // ============================================
+        
+        const messages = [
+            { text: "This is heavy", time: 2000, duration: 3500 },
+            { text: "The weight is real", time: 6000, duration: 3000 },
+            { text: "But you're still moving", time: 11000, duration: 3500 },
+            { text: "Still breathing", time: 15500, duration: 3000 },
+            { text: "Pain can be beautiful", time: 20000, duration: 4000 },
+            { text: "Cracks let the light in", time: 25500, duration: 4000 },
+            { text: "You don't have to be fixed to be whole", time: 31000, duration: 5000 },
+            { text: "Don't give up", time: 38000, duration: 4500 },
+            { text: "You are Lumina", time: 44000, duration: 5000 },
+            { text: "Light in your own darkness", time: 50500, duration: 6000 }
+        ];
+        
+        class TextSystem {
+            constructor() {
+                this.messageEl = document.getElementById('message');
+                this.messageIndex = 0;
+                this.startTime = Date.now();
+            }
+            
+            update() {
+                const elapsed = Date.now() - this.startTime;
+                
+                if (this.messageIndex < messages.length) {
+                    const current = messages[this.messageIndex];
+                    
+                    if (elapsed >= current.time && elapsed < current.time + current.duration) {
+                        if (this.messageEl.textContent !== current.text) {
+                            this.messageEl.textContent = current.text;
+                            this.messageEl.classList.add('show');
+                        }
+                    } else if (elapsed >= current.time + current.duration) {
+                        this.messageEl.classList.remove('show');
+                        if (this.messageIndex < messages.length - 1) {
+                            this.messageIndex++;
+                        }
+                    }
+                }
+            }
+            
+            showWelcome() {
+                this.messageEl.textContent = "Move to create light";
+                this.messageEl.classList.add('show');
+                setTimeout(() => {
+                    this.messageEl.classList.remove('show');
+                    this.startTime = Date.now();
+                }, 4000);
+            }
+        }
+        
+        // ============================================
+        // MAIN LUMINA APP
+        // ============================================
+        
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000510, 0.02);
+        
+        // Camera
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.z = 15;
+        
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true,
+            alpha: true 
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setClearColor(0x000510, 1);
+        document.getElementById('container').appendChild(renderer.domElement);
+        
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Create particles
+        const particles = [];
+        const particleCount = 300;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const x = (Math.random() - 0.5) * 40;
+            const y = (Math.random() - 0.5) * 30;
+            const z = (Math.random() - 0.5) * 40;
+            const isStar = Math.random() > 0.7;
+            particles.push(new LuminaParticle(scene, x, y, z, isStar));
+        }
+        
+        // Create glass fragments
+        const glassFragments = [];
+        const glassCount = 40;
+        
+        for (let i = 0; i < glassCount; i++) {
+            const x = (Math.random() - 0.5) * 40;
+            const y = (Math.random() - 0.5) * 30;
+            const z = (Math.random() - 0.5) * 40;
+            glassFragments.push(new GlassFragment(scene, x, y, z));
+        }
+        
+        // Mouse/touch tracking
+        const mouse = new THREE.Vector2();
+        const mousePos3D = new THREE.Vector3();
+        let interactionLevel = 0;
+        
+        function updateMousePosition(clientX, clientY) {
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+            
+            const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+            vector.unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            const distance = -camera.position.z / dir.z;
+            mousePos3D.copy(camera.position).add(dir.multiplyScalar(distance));
+            
+            interactionLevel = Math.min(interactionLevel + 0.05, 1);
+        }
+        
+        window.addEventListener('mousemove', (e) => {
+            updateMousePosition(e.clientX, e.clientY);
+        });
+        
+        window.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            updateMousePosition(touch.clientX, touch.clientY);
+        }, { passive: false });
+        
+        // Click/tap - create burst
+        function createBurst(clientX, clientY) {
+            const mx = (clientX / window.innerWidth) * 2 - 1;
+            const my = -(clientY / window.innerHeight) * 2 + 1;
+            
+            const vector = new THREE.Vector3(mx, my, 0.5);
+            vector.unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            const distance = -camera.position.z / dir.z;
+            const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+            
+            for (let i = 0; i < 30; i++) {
+                particles.push(new LuminaParticle(
+                    scene,
+                    pos.x + (Math.random() - 0.5) * 2,
+                    pos.y + (Math.random() - 0.5) * 2,
+                    pos.z + (Math.random() - 0.5) * 2,
+                    true
+                ));
+            }
+        }
+        
+        window.addEventListener('click', (e) => {
+            createBurst(e.clientX, e.clientY);
+        });
+        
+        window.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            createBurst(touch.clientX, touch.clientY);
+        });
+        
+        // Text system
+        const textSystem = new TextSystem();
+        textSystem.showWelcome();
+        
+        // Sound toggle (placeholder for now)
+        const soundToggle = document.getElementById('soundToggle');
+        let soundEnabled = false;
+        
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            document.querySelector('.sound-on').style.display = soundEnabled ? 'none' : 'inline';
+            document.querySelector('.sound-off').style.display = soundEnabled ? 'inline' : 'none';
+            // Sound will be added in next version
+        });
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update particles
+            particles.forEach(p => p.update(mousePos3D, interactionLevel));
+            
+            // Update glass
+            glassFragments.forEach(g => g.update(mousePos3D));
+            
+            // Update text
+            textSystem.update();
+            
+            // Camera gentle movement
+            camera.position.x += (mouse.x * 2 - camera.position.x) * 0.01;
+            camera.position.y += (mouse.y * 2 - camera.position.y) * 0.01;
+            
+            // Fade interaction
+            interactionLevel *= 0.98;
+            
+            // Render
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+    </script>
 </body>
 </html>
