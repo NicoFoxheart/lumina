@@ -7,10 +7,32 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="luminaCanvas"></canvas>
+    <!-- Three.js container -->
+    <div id="container"></div>
+    
+    <!-- Messages -->
     <div id="messageContainer">
         <p id="message"></p>
     </div>
-    <script src="script.js"></script>
+    
+    <!-- Sound toggle -->
+    <button id="soundToggle" class="toggle-btn">
+        <span class="sound-on">🔊</span>
+        <span class="sound-off" style="display:none;">🔇</span>
+    </button>
+    
+    <!-- Instructions -->
+    <div id="instructions">
+        <p>Move to create light • Click for bursts • Let the transformation begin</p>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Our scripts -->
+    <script src="js/particles.js"></script>
+    <script src="js/glass.js"></script>
+    <script src="js/text.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
