@@ -4,366 +4,361 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lumina - Light in Darkness</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(180deg, #0a0e27 0%, #1a1140 50%, #0d0221 100%);
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Vignette effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Subtle stars background */
+        #stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* Snow canvas */
+        #snow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Message container */
+        #message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+            padding: 0 20px;
+        }
+
+        #message p {
+            font-size: clamp(1.8rem, 5vw, 3.5rem);
+            font-weight: 200;
+            letter-spacing: 0.15em;
+            color: rgba(255, 255, 255, 0);
+            text-shadow: 
+                0 0 20px rgba(200, 220, 255, 0),
+                0 0 40px rgba(200, 220, 255, 0);
+            transition: all 2s cubic-bezier(0.4, 0, 0.2, 1);
+            line-height: 1.6;
+        }
+
+        #message p.show {
+            color: rgba(255, 255, 255, 0.95);
+            text-shadow: 
+                0 0 30px rgba(200, 220, 255, 0.8),
+                0 0 60px rgba(200, 220, 255, 0.4),
+                0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Instruction at bottom */
+        #instruction {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0);
+            font-size: 0.9rem;
+            letter-spacing: 0.1em;
+            font-weight: 300;
+            z-index: 10;
+            transition: color 2s ease;
+        }
+
+        #instruction.show {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            #message p {
+                letter-spacing: 0.08em;
+            }
+        }
+    </style>
 </head>
 <body>
-    <canvas id="luminaCanvas"></canvas>
+    <!-- Stars background -->
+    <canvas id="stars"></canvas>
     
-    <div id="messageContainer">
-        <p id="message"></p>
+    <!-- Snow canvas -->
+    <canvas id="snow"></canvas>
+    
+    <!-- Message -->
+    <div id="message">
+        <p></p>
     </div>
     
-    <div id="instructions">
-        <p>Move to create light • Touch to transform • Let yourself feel</p>
-    </div>
+    <!-- End instruction -->
+    <div id="instruction">Tap to refresh and experience again</div>
 
     <script>
-        // ============================================
-        // ULTRA LIGHT VERSION - NO THREE.JS
-        // PURE CANVAS FOR MAX PERFORMANCE
-        // ============================================
+        // =====================================
+        // STARS BACKGROUND
+        // =====================================
         
-        const canvas = document.getElementById('luminaCanvas');
-        const ctx = canvas.getContext('2d');
-        const messageEl = document.getElementById('message');
+        const starsCanvas = document.getElementById('stars');
+        const starsCtx = starsCanvas.getContext('2d');
         
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-        
-        // COLOR JOURNEY
-        const colorStages = [
-            { bg: '#000510', particle: '#4a5568', glow: '#94a3b8' },
-            { bg: '#0a1628', particle: '#ffd89b', glow: '#ffafcc' },
-            { bg: '#1a0a28', particle: '#ff6b6b', glow: '#4ecdc4' },
-            { bg: '#2a0a38', particle: '#ff006e', glow: '#ffbe0b' },
-            { bg: '#3a1048', particle: '#ff4500', glow: '#ffd700' }
-        ];
-        
-        function getColorsForProgress(progress) {
-            const index = Math.min(Math.floor(progress * 4), 3);
-            const t = (progress * 4) - index;
-            const c1 = colorStages[index];
-            const c2 = colorStages[index + 1] || colorStages[index];
-            
-            return {
-                bg: lerpColor(c1.bg, c2.bg, t),
-                particle: lerpColor(c1.particle, c2.particle, t),
-                glow: lerpColor(c1.glow, c2.glow, t)
-            };
+        function resizeStars() {
+            starsCanvas.width = window.innerWidth;
+            starsCanvas.height = window.innerHeight;
+            drawStars();
         }
         
-        function lerpColor(hex1, hex2, t) {
-            const r1 = parseInt(hex1.substr(1, 2), 16);
-            const g1 = parseInt(hex1.substr(3, 2), 16);
-            const b1 = parseInt(hex1.substr(5, 2), 16);
-            const r2 = parseInt(hex2.substr(1, 2), 16);
-            const g2 = parseInt(hex2.substr(3, 2), 16);
-            const b2 = parseInt(hex2.substr(5, 2), 16);
+        function drawStars() {
+            starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
             
-            const r = Math.round(r1 + (r2 - r1) * t);
-            const g = Math.round(g1 + (g2 - g1) * t);
-            const b = Math.round(b1 + (b2 - b1) * t);
-            
-            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            // Draw small twinkling stars
+            for (let i = 0; i < 100; i++) {
+                const x = Math.random() * starsCanvas.width;
+                const y = Math.random() * starsCanvas.height;
+                const size = Math.random() * 1.5;
+                const opacity = Math.random() * 0.3 + 0.1;
+                
+                starsCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+                starsCtx.beginPath();
+                starsCtx.arc(x, y, size, 0, Math.PI * 2);
+                starsCtx.fill();
+            }
         }
         
-        // SIMPLE PARTICLE
-        class Particle {
-            constructor(x, y, isStar = false) {
-                this.x = x;
-                this.y = y;
-                this.vx = (Math.random() - 0.5) * 0.5;
-                this.vy = isStar ? -Math.random() * 0.4 : Math.random() * 0.4;
-                this.size = isStar ? 3 : 2;
-                this.isStar = isStar;
-                this.opacity = Math.random() * 0.5 + 0.3;
-                this.brightness = 0;
-                this.pulse = Math.random() * Math.PI * 2;
+        resizeStars();
+        window.addEventListener('resize', resizeStars);
+        
+        // Subtle star twinkling
+        setInterval(() => {
+            drawStars();
+        }, 3000);
+        
+        // =====================================
+        // SNOW SYSTEM
+        // =====================================
+        
+        const snowCanvas = document.getElementById('snow');
+        const snowCtx = snowCanvas.getContext('2d');
+        
+        function resizeSnow() {
+            snowCanvas.width = window.innerWidth;
+            snowCanvas.height = window.innerHeight;
+        }
+        resizeSnow();
+        window.addEventListener('resize', resizeSnow);
+        
+        class Snowflake {
+            constructor() {
+                this.reset();
+                this.y = Math.random() * snowCanvas.height;
+                this.opacity = Math.random() * 0.6 + 0.3;
             }
             
-            update(mouseX, mouseY) {
-                this.x += this.vx;
-                this.y += this.vy;
+            reset() {
+                this.x = Math.random() * snowCanvas.width;
+                this.y = -10;
+                this.size = Math.random() * 3 + 1;
+                this.speed = Math.random() * 0.5 + 0.3;
+                this.drift = Math.random() * 0.5 - 0.25;
+                this.opacity = Math.random() * 0.6 + 0.3;
+                this.blur = Math.random() > 0.5;
+            }
+            
+            update() {
+                this.y += this.speed;
+                this.x += this.drift;
                 
-                const dx = mouseX - this.x;
-                const dy = mouseY - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < 150) {
-                    const force = (150 - distance) / 150;
-                    this.brightness = Math.min(this.brightness + force * 0.15, 1);
-                    
-                    if (!this.isStar && force > 0.5) {
-                        this.isStar = true;
-                        this.vy = -Math.abs(this.vy);
-                        this.size = 3;
-                    }
-                } else {
-                    this.brightness *= 0.95;
+                if (this.y > snowCanvas.height) {
+                    this.reset();
                 }
                 
-                this.pulse += 0.03;
-                
-                if (this.y > canvas.height + 20) this.y = -20;
-                if (this.y < -20) this.y = canvas.height + 20;
-                if (this.x > canvas.width + 20) this.x = -20;
-                if (this.x < -20) this.x = canvas.width + 20;
+                if (this.x > snowCanvas.width + 10) {
+                    this.x = -10;
+                } else if (this.x < -10) {
+                    this.x = snowCanvas.width + 10;
+                }
             }
             
-            draw(colors) {
-                const pulseVal = Math.sin(this.pulse) * 0.2 + 0.8;
-                const alpha = (this.opacity + this.brightness * 0.4) * pulseVal;
+            draw() {
+                snowCtx.save();
                 
-                if (this.isStar) {
-                    // Glow
-                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 4);
-                    gradient.addColorStop(0, `${colors.glow}${Math.floor(alpha * 255).toString(16).padStart(2, '0')}`);
-                    gradient.addColorStop(0.5, `${colors.glow}${Math.floor(alpha * 128).toString(16).padStart(2, '0')}`);
-                    gradient.addColorStop(1, `${colors.glow}00`);
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size * 4, 0, Math.PI * 2);
-                    ctx.fill();
+                if (this.blur) {
+                    snowCtx.filter = 'blur(1px)';
                 }
                 
-                // Core
-                ctx.fillStyle = `${this.isStar ? colors.particle : colors.glow}${Math.floor(alpha * 255).toString(16).padStart(2, '0')}`;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
+                const gradient = snowCtx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, this.size * 2
+                );
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.opacity})`);
+                gradient.addColorStop(0.5, `rgba(220, 230, 255, ${this.opacity * 0.6})`);
+                gradient.addColorStop(1, `rgba(200, 220, 255, 0)`);
+                
+                snowCtx.fillStyle = gradient;
+                snowCtx.beginPath();
+                snowCtx.arc(this.x, this.y, this.size * 2, 0, Math.PI * 2);
+                snowCtx.fill();
+                
+                snowCtx.restore();
             }
         }
         
-        // SIMPLE GLASS
-        class Glass {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.size = 20 + Math.random() * 20;
-                this.rotation = Math.random() * Math.PI * 2;
-                this.rotSpeed = (Math.random() - 0.5) * 0.02;
-                this.vx = (Math.random() - 0.5) * 0.3;
-                this.vy = (Math.random() - 0.5) * 0.3;
-                this.brightness = 0;
-            }
+        // Create snowflakes
+        const snowflakes = [];
+        const snowCount = window.innerWidth < 768 ? 60 : 80;
+        
+        for (let i = 0; i < snowCount; i++) {
+            snowflakes.push(new Snowflake());
+        }
+        
+        function animateSnow() {
+            snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
             
-            update(mouseX, mouseY) {
-                this.x += this.vx;
-                this.y += this.vy;
-                this.rotation += this.rotSpeed;
-                
-                const dx = mouseX - this.x;
-                const dy = mouseY - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < 200) {
-                    const force = (200 - distance) / 200;
-                    this.brightness = Math.min(this.brightness + force * 0.1, 1);
-                } else {
-                    this.brightness *= 0.93;
-                }
-                
-                if (this.x > canvas.width + 50) this.x = -50;
-                if (this.x < -50) this.x = canvas.width + 50;
-                if (this.y > canvas.height + 50) this.y = -50;
-                if (this.y < -50) this.y = canvas.height + 50;
-            }
+            snowflakes.forEach(flake => {
+                flake.update();
+                flake.draw();
+            });
             
-            draw(colors) {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.rotation);
-                
-                const alpha = 0.2 + this.brightness * 0.5;
-                
-                // Glow
-                if (this.brightness > 0.3) {
-                    ctx.strokeStyle = `${colors.glow}${Math.floor(this.brightness * 180).toString(16).padStart(2, '0')}`;
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(-this.size, -this.size);
-                    ctx.lineTo(this.size * 0.8, -this.size * 0.5);
-                    ctx.lineTo(this.size * 0.6, this.size);
-                    ctx.lineTo(-this.size * 0.7, this.size * 0.8);
-                    ctx.closePath();
-                    ctx.stroke();
-                }
-                
-                // Edge
-                ctx.strokeStyle = `${colors.particle}${Math.floor(alpha * 255).toString(16).padStart(2, '0')}`;
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(-this.size, -this.size);
-                ctx.lineTo(this.size * 0.8, -this.size * 0.5);
-                ctx.lineTo(this.size * 0.6, this.size);
-                ctx.lineTo(-this.size * 0.7, this.size * 0.8);
-                ctx.closePath();
-                ctx.stroke();
-                
-                ctx.restore();
-            }
+            requestAnimationFrame(animateSnow);
         }
         
-        // Create objects - SUPER REDUCED
-        const particles = [];
-        for (let i = 0; i < 100; i++) {
-            particles.push(new Particle(
-                Math.random() * canvas.width,
-                Math.random() * canvas.height,
-                Math.random() > 0.7
-            ));
-        }
+        animateSnow();
         
-        const glass = [];
-        for (let i = 0; i < 15; i++) {
-            glass.push(new Glass(
-                Math.random() * canvas.width,
-                Math.random() * canvas.height
-            ));
-        }
+        // =====================================
+        // MESSAGES SYSTEM
+        // =====================================
         
-        // Mouse
-        let mouseX = canvas.width / 2;
-        let mouseY = canvas.height / 2;
-        let totalInteraction = 0;
-        
-        canvas.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-            totalInteraction = Math.min(totalInteraction + 0.002, 1);
-        });
-        
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            mouseX = touch.clientX;
-            mouseY = touch.clientY;
-            totalInteraction = Math.min(totalInteraction + 0.002, 1);
-        }, { passive: false });
-        
-        canvas.addEventListener('click', (e) => {
-            for (let i = 0; i < 15; i++) {
-                particles.push(new Particle(
-                    e.clientX + (Math.random() - 0.5) * 50,
-                    e.clientY + (Math.random() - 0.5) * 50,
-                    true
-                ));
-            }
-            totalInteraction = Math.min(totalInteraction + 0.05, 1);
-        });
-        
-        canvas.addEventListener('touchstart', (e) => {
-            const touch = e.touches[0];
-            for (let i = 0; i < 15; i++) {
-                particles.push(new Particle(
-                    touch.clientX + (Math.random() - 0.5) * 50,
-                    touch.clientY + (Math.random() - 0.5) * 50,
-                    true
-                ));
-            }
-            totalInteraction = Math.min(totalInteraction + 0.05, 1);
-        });
-        
-        // Messages
         const messages = [
-            { text: "Hey... you there?", time: 1500, duration: 3000 },
-            { text: "Yeah, you", time: 5000, duration: 2500 },
-            { text: "I see you", time: 8000, duration: 3000 },
-            { text: "I know you're hurting", time: 12000, duration: 3500 },
-            { text: "I know it's heavy", time: 16000, duration: 3000 },
-            { text: "But look...", time: 20000, duration: 2500 },
-            { text: "Move your hand", time: 23000, duration: 3000 },
-            { text: "See that?", time: 26500, duration: 2500 },
-            { text: "That's you", time: 30000, duration: 3000 },
-            { text: "Creating light", time: 33500, duration: 3000 },
-            { text: "Even now", time: 37000, duration: 3500 },
-            { text: "You don't have to be okay", time: 41500, duration: 4000 },
-            { text: "You just have to be here", time: 46000, duration: 4000 },
-            { text: "And you are", time: 51000, duration: 3000 },
-            { text: "You're still here", time: 54500, duration: 3500 },
-            { text: "That's everything", time: 58500, duration: 4000 },
-            { text: "Every tear you've cried?", time: 63500, duration: 3500 },
-            { text: "Every crack in your heart?", time: 67500, duration: 4000 },
-            { text: "They catch the light", time: 72500, duration: 3500 },
-            { text: "They become stars", time: 76500, duration: 3500 },
-            { text: "They become beautiful", time: 80500, duration: 4500 },
-            { text: "Not because the pain wasn't real", time: 86000, duration: 4500 },
-            { text: "But because YOU are real", time: 91000, duration: 4500 },
-            { text: "Look at what you're making", time: 96500, duration: 4000 },
-            { text: "Look at these colors", time: 101000, duration: 4000 },
-            { text: "This is your light", time: 106000, duration: 3500 },
-            { text: "This is your strength", time: 110000, duration: 3500 },
-            { text: "This is YOU", time: 114000, duration: 5000 },
-            { text: "Don't give up", time: 120000, duration: 4500 },
-            { text: "Please", time: 125000, duration: 3500 },
-            { text: "The world needs this light", time: 129500, duration: 4500 },
-            { text: "The world needs YOU", time: 134500, duration: 5500 },
-            { text: "You are Lumina", time: 141000, duration: 5000 },
-            { text: "Light in the darkness", time: 147000, duration: 5000 },
-            { text: "Broken, beautiful, whole", time: 153000, duration: 6000 },
-            { text: "And you always were", time: 160000, duration: 8000 }
+            { text: "Hey... you there?", duration: 4000 },
+            { text: "Yeah, you", duration: 3500 },
+            { text: "I see you", duration: 4000 },
+            { text: "I know you're hurting", duration: 4500 },
+            { text: "I know it's heavy", duration: 4000 },
+            { text: "But you're still here", duration: 4500 },
+            { text: "Still breathing", duration: 4000 },
+            { text: "Still moving", duration: 4000 },
+            { text: "You don't have to be okay", duration: 5000 },
+            { text: "You just have to be here", duration: 5000 },
+            { text: "And you are", duration: 4000 },
+            { text: "You're still here", duration: 4500 },
+            { text: "That's everything", duration: 5000 },
+            { text: "Every tear you've cried?", duration: 4500 },
+            { text: "Every crack in your heart?", duration: 5000 },
+            { text: "They're not weakness", duration: 4500 },
+            { text: "They're proof you're real", duration: 5000 },
+            { text: "Proof you're feeling", duration: 4500 },
+            { text: "You don't have to be fixed to be whole", duration: 6000 },
+            { text: "Look around you", duration: 4000 },
+            { text: "This gentle snow", duration: 4500 },
+            { text: "Soft and beautiful", duration: 4500 },
+            { text: "Falling quietly", duration: 4000 },
+            { text: "Like your struggles", duration: 4500 },
+            { text: "Coming down gently", duration: 4500 },
+            { text: "But always passing", duration: 4500 },
+            { text: "Always moving", duration: 4000 },
+            { text: "Nothing stays forever", duration: 5000 },
+            { text: "Not the pain", duration: 4000 },
+            { text: "Not the snow", duration: 4000 },
+            { text: "But you remain", duration: 4500 },
+            { text: "Strong", duration: 3500 },
+            { text: "Beautiful", duration: 3500 },
+            { text: "Whole", duration: 4000 },
+            { text: "Don't give up", duration: 5000 },
+            { text: "Please", duration: 4000 },
+            { text: "The world needs you", duration: 5000 },
+            { text: "Your light", duration: 4000 },
+            { text: "Your heart", duration: 4000 },
+            { text: "YOU", duration: 5000 },
+            { text: "You are Lumina", duration: 5500 },
+            { text: "Light in the darkness", duration: 5500 },
+            { text: "Even when you can't see it", duration: 5500 },
+            { text: "Especially then", duration: 5000 },
+            { text: "This snow will melt", duration: 5000 },
+            { text: "The pain will ease", duration: 5000 },
+            { text: "But you?", duration: 4000 },
+            { text: "You're forever", duration: 4500 },
+            { text: "You're important", duration: 4500 },
+            { text: "You matter", duration: 5000 },
+            { text: "And you always were", duration: 8000 }
         ];
         
-        let messageIndex = 0;
-        let startTime = Date.now();
+        const messageEl = document.querySelector('#message p');
+        const instructionEl = document.getElementById('instruction');
+        let currentMessage = 0;
         
-        function updateMessage() {
-            const elapsed = Date.now() - startTime;
-            
-            if (messageIndex < messages.length) {
-                const current = messages[messageIndex];
-                
-                if (elapsed >= current.time && elapsed < current.time + current.duration) {
-                    if (messageEl.textContent !== current.text) {
-                        messageEl.textContent = current.text;
-                        messageEl.classList.add('show');
-                    }
-                } else if (elapsed >= current.time + current.duration) {
-                    messageEl.classList.remove('show');
-                    if (messageIndex < messages.length - 1) {
-                        messageIndex++;
-                    }
-                }
+        function showMessage(index) {
+            if (index >= messages.length) {
+                // End of messages - show instruction
+                setTimeout(() => {
+                    instructionEl.classList.add('show');
+                }, 2000);
+                return;
             }
+            
+            const msg = messages[index];
+            
+            // Fade in
+            messageEl.textContent = msg.text;
+            setTimeout(() => {
+                messageEl.classList.add('show');
+            }, 100);
+            
+            // Fade out and next
+            setTimeout(() => {
+                messageEl.classList.remove('show');
+                setTimeout(() => {
+                    showMessage(index + 1);
+                }, 2000); // Gap between messages
+            }, msg.duration);
         }
         
-        // Welcome
-        messageEl.textContent = "Move... and see what happens";
-        messageEl.classList.add('show');
+        // Start after brief delay
         setTimeout(() => {
-            messageEl.classList.remove('show');
-            startTime = Date.now();
-        }, 4500);
+            showMessage(0);
+        }, 1500);
         
-        // Animate
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            const colors = getColorsForProgress(totalInteraction);
-            
-            // Background
-            ctx.fillStyle = colors.bg;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Update and draw
-            glass.forEach(g => {
-                g.update(mouseX, mouseY);
-                g.draw(colors);
-            });
-            
-            particles.forEach(p => {
-                p.update(mouseX, mouseY);
-                p.draw(colors);
-            });
-            
-            updateMessage();
-        }
-        
-        animate();
+        // Tap to refresh
+        let tapped = false;
+        document.addEventListener('click', () => {
+            if (instructionEl.classList.contains('show') && !tapped) {
+                tapped = true;
+                location.reload();
+            }
+        });
     </script>
 </body>
 </html>
