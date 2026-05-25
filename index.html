@@ -20,27 +20,14 @@
             height: 100vh;
         }
 
-        /* Vignette effect */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%);
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        /* Subtle stars background */
+        /* Stars background */
         #stars {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 0;
+            z-index: 1;
         }
 
         /* Snow canvas */
@@ -54,13 +41,25 @@
             pointer-events: none;
         }
 
+        /* Vignette effect */
+        #vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%);
+            pointer-events: none;
+            z-index: 3;
+        }
+
         /* Message container */
         #message {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            z-index: 10;
+            z-index: 100;
             text-align: center;
             width: 90%;
             max-width: 800px;
@@ -97,7 +96,7 @@
             font-size: 0.9rem;
             letter-spacing: 0.1em;
             font-weight: 300;
-            z-index: 10;
+            z-index: 100;
             transition: color 2s ease;
         }
 
@@ -120,6 +119,9 @@
     <!-- Snow canvas -->
     <canvas id="snow"></canvas>
     
+    <!-- Vignette -->
+    <div id="vignette"></div>
+    
     <!-- Message -->
     <div id="message">
         <p></p>
@@ -129,6 +131,8 @@
     <div id="instruction">Tap to refresh and experience again</div>
 
     <script>
+        console.log("Lumina starting...");
+        
         // =====================================
         // STARS BACKGROUND
         // =====================================
@@ -145,7 +149,6 @@
         function drawStars() {
             starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
             
-            // Draw small twinkling stars
             for (let i = 0; i < 100; i++) {
                 const x = Math.random() * starsCanvas.width;
                 const y = Math.random() * starsCanvas.height;
@@ -162,7 +165,6 @@
         resizeStars();
         window.addEventListener('resize', resizeStars);
         
-        // Subtle star twinkling
         setInterval(() => {
             drawStars();
         }, 3000);
@@ -237,7 +239,6 @@
             }
         }
         
-        // Create snowflakes
         const snowflakes = [];
         const snowCount = window.innerWidth < 768 ? 60 : 80;
         
@@ -318,11 +319,15 @@
         
         const messageEl = document.querySelector('#message p');
         const instructionEl = document.getElementById('instruction');
-        let currentMessage = 0;
+        
+        console.log("Message element:", messageEl);
+        console.log("Total messages:", messages.length);
         
         function showMessage(index) {
+            console.log("Showing message", index);
+            
             if (index >= messages.length) {
-                // End of messages - show instruction
+                console.log("All messages done");
                 setTimeout(() => {
                     instructionEl.classList.add('show');
                 }, 2000);
@@ -330,24 +335,31 @@
             }
             
             const msg = messages[index];
+            console.log("Message text:", msg.text);
+            
+            // Set text
+            messageEl.textContent = msg.text;
             
             // Fade in
-            messageEl.textContent = msg.text;
             setTimeout(() => {
                 messageEl.classList.add('show');
+                console.log("Message showing");
             }, 100);
             
             // Fade out and next
             setTimeout(() => {
                 messageEl.classList.remove('show');
+                console.log("Message hiding");
                 setTimeout(() => {
                     showMessage(index + 1);
-                }, 2000); // Gap between messages
+                }, 2000);
             }, msg.duration);
         }
         
-        // Start after brief delay
+        // Start
+        console.log("Starting in 1.5 seconds...");
         setTimeout(() => {
+            console.log("GO!");
             showMessage(0);
         }, 1500);
         
